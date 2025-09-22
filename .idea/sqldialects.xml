@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SqlDialectMappings">
+    <file url="file://$PROJECT_DIR$/resources/data/12306-springcloud-user.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/resources/db/12306-springboot.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/resources/db/12306-springcloud-order.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/resources/db/12306-springcloud-pay.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/resources/db/12306-springcloud-ticket.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/resources/db/12306-springcloud-user.sql" dialect="GenericSQL" />
+  </component>
+</project>
