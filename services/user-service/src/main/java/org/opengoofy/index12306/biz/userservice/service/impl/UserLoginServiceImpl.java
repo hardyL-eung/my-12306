@@ -5,8 +5,11 @@ import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import groovy.util.logging.Slf4j;
+
 import lombok.RequiredArgsConstructor;
+
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.opengoofy.index12306.biz.userservice.common.enums.UserChainMarkEnum;
 import org.opengoofy.index12306.biz.userservice.dao.entity.*;
 import org.opengoofy.index12306.biz.userservice.dao.mapper.*;
@@ -22,7 +25,7 @@ import org.opengoofy.index12306.framework.starter.cache.DistributedCache;
 import org.opengoofy.index12306.framework.starter.convention.exception.ClientException;
 import org.opengoofy.index12306.framework.starter.convention.exception.ServiceException;
 import org.opengoofy.index12306.framework.starter.designpattern.chain.AbstractChainContext;
-import org.opengoofy.index12306.framework.starter.designpattern.chain.AbstractChainHandler;
+
 import org.opengoofy.index12306.frameworks.starter.user.core.UserContext;
 import org.opengoofy.index12306.frameworks.starter.user.core.UserInfoDTO;
 import org.opengoofy.index12306.frameworks.starter.user.toolkit.JWTUtil;
@@ -56,18 +59,11 @@ public class UserLoginServiceImpl implements UserLoginService {
     private final AbstractChainContext<UserRegisterReqDTO> abstractChainContext;
     private final DistributedCache distributedCache;
     private final RedissonClient redissonClient;
-    private final RBloomFilter<String> userRegisterCachePenetrationBloomFilter;
+    // private final RBloomFilter<String> userRegisterCachePenetrationBloomFilter;
     @Override
     public UserLoginRespDTO login(UserLoginReqDTO requestParam) {
         String usernameOrMailOrPhone = requestParam.getUsernameOrMailOrPhone();
-        boolean mailFlag = false;
-        // 时间复杂度最佳 O(1)。indexOf or contains 时间复杂度为 O(n)
-        for (char c : usernameOrMailOrPhone.toCharArray()) {
-            if (c == '@') {
-                mailFlag = true;
-                break;
-            }
-        }
+        boolean mailFlag = StringUtils.contains(usernameOrMailOrPhone, "@");
         String username;
         if (mailFlag) {
             LambdaQueryWrapper<UserMailDO> queryWrapper = Wrappers.lambdaQuery(UserMailDO.class)
@@ -101,7 +97,7 @@ public class UserLoginServiceImpl implements UserLoginService {
                     .realName(userInfo.getRealName())
                     .accessToken(accessToken)
                     .build();
-            // 缓存中写入用户信息，token作为key, userLogin info 作为value
+            // 登录成功缓存中写入用户信息，token作为key, userLogin info 作为value
             distributedCache.put(accessToken, JSON.toJSONString(userLogin), 30, TimeUnit.MINUTES);
             return userLogin;
         }
@@ -126,11 +122,16 @@ public class UserLoginServiceImpl implements UserLoginService {
         return null;
     }
 
+    /*
+        // check if username already exist.
+        // insert into user table, user phone table, username table, if error then roll back
+        //
+     */
     @Transactional(rollbackFor = Exception.class)
     @Override
     public UserRegisterRespDTO register(UserRegisterReqDTO requestParam) {
 
-        // check if username already exist.
+
         abstractChainContext.handler(UserChainMarkEnum.USER_REGISTER_FILTER.name(), requestParam);
         RLock lock = redissonClient.getLock(LOCK_USER_REGISTER + requestParam.getUsername());
         boolean tryLock = lock.tryLock();
@@ -175,9 +176,8 @@ public class UserLoginServiceImpl implements UserLoginService {
             userReuseMapper.delete(Wrappers.update(new UserReuseDO(username)));
             StringRedisTemplate instance = (StringRedisTemplate) distributedCache.getInstance();
             instance.opsForSet().remove(USER_REGISTER_REUSE_SHARDING + hashShardingIdx(username), username);
-            instance.opsForSet().remove(USER_REGISTER_REUSE_SHARDING + hashShardingIdx(username), username);
             // 布隆过滤器设计问题：设置多大、碰撞率以及初始容量不够了怎么办？详情查看：https://nageoffer.com/12306/question
-            userRegisterCachePenetrationBloomFilter.add(username);
+            // userRegisterCachePenetrationBloomFilter.add(username);
         } finally {
             lock.unlock();
         }
