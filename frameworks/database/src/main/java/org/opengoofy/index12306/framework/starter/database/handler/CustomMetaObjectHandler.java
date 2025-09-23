@@ -2,6 +2,7 @@ package org.opengoofy.index12306.framework.starter.database.handler;
 
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import org.apache.ibatis.reflection.MetaObject;
+import org.opengoofy.index12306.framework.starter.common.enums.DelEnum;
 
 import java.util.Date;
 

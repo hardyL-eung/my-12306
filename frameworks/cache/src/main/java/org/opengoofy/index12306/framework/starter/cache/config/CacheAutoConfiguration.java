@@ -19,6 +19,7 @@ package org.opengoofy.index12306.framework.starter.cache.config;
 
 import lombok.AllArgsConstructor;
 import org.opengoofy.index12306.framework.starter.cache.RedisKeySerializer;
+
 import org.opengoofy.index12306.framework.starter.cache.StringRedisTemplateProxy;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
@@ -26,6 +27,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.redis.core.StringRedisTemplate;
+
 
 /**
  * 缓存配置自动装配

@@ -59,6 +59,7 @@ public class UserTransmitFilter implements Filter {
         try {
             filterChain.doFilter(servletRequest, servletResponse);
         } finally {
+            // 当请求结束之后会将用户信息从thread local中清除
             UserContext.removeUser();
         }
     }

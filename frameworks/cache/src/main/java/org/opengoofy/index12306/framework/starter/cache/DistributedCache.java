@@ -10,7 +10,7 @@ import org.redisson.api.RBloomFilter;
 
 import java.util.concurrent.TimeUnit;
 
-public interface DistributedCache {
+public interface DistributedCache extends Cache{
     /**
      * 获取缓存，如查询结果为空，调用 {@link CacheLoader} 加载缓存
      */

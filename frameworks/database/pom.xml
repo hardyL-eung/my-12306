@@ -51,6 +51,12 @@
             <artifactId>shardingsphere-jdbc-core</artifactId>
             <optional>true</optional>
         </dependency>
+        <dependency>
+            <groupId>org.opengoofy.index12306</groupId>
+            <artifactId>index12306-common-spring-boot-starter</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
 </project>

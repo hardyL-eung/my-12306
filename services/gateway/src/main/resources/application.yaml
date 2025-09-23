@@ -1,0 +1,8 @@
+server:
+  port: 9000
+spring:
+  application:
+    name: index12306-gateway${unique-name:}-service
+  profiles:
+    active: aggregation
+    # active: dev

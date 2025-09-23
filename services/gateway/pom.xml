@@ -9,7 +9,7 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>index12306-gateway</artifactId>
+    <artifactId>index12306-gateway-service</artifactId>
 
     <dependencies>
         <dependency>
@@ -70,11 +70,11 @@
         </dependency>
         <!-- jjwt end -->
 
-<!--        <dependency>-->
-<!--            <groupId>org.opengoofy.index12306</groupId>-->
-<!--            <artifactId>index12306-base-spring-boot-starter</artifactId>-->
-<!--            <version>${project.version}</version>-->
-<!--        </dependency>-->
+        <dependency>
+            <groupId>org.opengoofy.index12306</groupId>
+            <artifactId>index12306-base-spring-boot-starter</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>com.alibaba.fastjson2</groupId>
