@@ -4,14 +4,31 @@ server:
 spring:
   application:
     name: index12306-user${unique-name:}-service
+#  datasource:
+#    driver-class-name: org.apache.shardingsphere.driver.ShardingSphereDriver
+#    url: jdbc:shardingsphere:classpath:shardingsphere-config.yaml
+
   datasource:
-    driver-class-name: org.apache.shardingsphere.driver.ShardingSphereDriver
-    url: jdbc:shardingsphere:classpath:shardingsphere-config.yaml
+    driver-class-name: com.mysql.jdbc.Driver
+    url: jdbc:mysql://8.148.145.83:3306/12306_user_0?useUnicode=true&characterEncoding=utf8
+    username: root
+    password: root
   data:
     redis:
       host: 8.148.145.83
       port: 6379
       password: 123456
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 8.148.145.83:8848
+      password: nacos
+      username: nacos
+    sentinel:
+      transport:
+        dashboard: localhost:8686
+        port: 8719
 
 mybatis-plus:
   global-config:

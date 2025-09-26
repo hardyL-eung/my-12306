@@ -26,7 +26,8 @@ import org.opengoofy.index12306.biz.ticketservice.dao.mapper.CarriageMapper;
 import org.opengoofy.index12306.biz.ticketservice.service.CarriageService;
 import org.opengoofy.index12306.framework.starter.cache.DistributedCache;
 import org.opengoofy.index12306.framework.starter.cache.core.CacheLoader;
-import org.opengoofy.index12306.framework.starter.cache.toolkit.CacheUtil;
+
+import org.opengoofy.index12306.framework.starter.cache.tookit.CacheUtil;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.data.redis.core.HashOperations;

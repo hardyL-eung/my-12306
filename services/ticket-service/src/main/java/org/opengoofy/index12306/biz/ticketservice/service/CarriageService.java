@@ -26,7 +26,7 @@ import java.util.List;
 public interface CarriageService {
 
     /**
-     * 查询列车车厢号集合
+     * 根据列车ID和车厢类型找出车厢号集合
      *
      * @param trainId      列车 ID
      * @param carriageType 车厢类型

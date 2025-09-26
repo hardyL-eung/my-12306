@@ -71,6 +71,7 @@ public class SeatServiceImpl extends ServiceImpl<SeatMapper, SeatDO> implements 
     @Override
     public List<Integer> listSeatRemainingTicket(String trainId, String departure, String arrival, List<String> trainCarriageList) {
         String keySuffix = StrUtil.join("_", trainId, departure, arrival);
+        // TODO: Why use cache and where to update cache?
         if (distributedCache.hasKey(TRAIN_STATION_CARRIAGE_REMAINING_TICKET + keySuffix)) {
             StringRedisTemplate stringRedisTemplate = (StringRedisTemplate) distributedCache.getInstance();
             List<Object> trainStationCarriageRemainingTicket =

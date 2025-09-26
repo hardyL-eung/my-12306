@@ -66,12 +66,12 @@ public class RegionStationImpl implements RegionStationService {
     @Override
     public List<RegionStationQueryRespDTO> listRegionStation(RegionStationQueryReqDTO requestParam) {
         String key;
-        //
         if (StrUtil.isNotBlank(requestParam.getName())) {
             key  = REGION_STATION  + requestParam.getName();
             return safeGetRegionStation(
                     key ,
                     () -> {
+                        // 匹配车站的名称或者拼音
                         LambdaQueryWrapper<StationDO> queryWrapper = Wrappers.lambdaQuery(StationDO.class)
                                 .likeRight(StationDO::getName, requestParam.getName())
                                 .or()
@@ -82,6 +82,7 @@ public class RegionStationImpl implements RegionStationService {
                     requestParam.getName()
             );
         }
+        // 根据类型查询,类型有是否热门以及首字母
         key  = REGION_STATION  + requestParam.getQueryType();
         LambdaQueryWrapper<RegionDO> queryWrapper = switch (requestParam.getQueryType()) {
             case 0 -> Wrappers.lambdaQuery(RegionDO.class)
@@ -126,6 +127,7 @@ public class RegionStationImpl implements RegionStationService {
         }
         String lockKey = String.format(LOCK_QUERY_REGION_STATION_LIST, param);
         RLock lock = redissonClient.getLock(lockKey);
+        // 根据查询参数将查询结果缓存
         lock.lock();
         try {
             if (CollUtil.isEmpty(result = JSON.parseArray(distributedCache.get(key, String.class), RegionStationQueryRespDTO.class))) {
