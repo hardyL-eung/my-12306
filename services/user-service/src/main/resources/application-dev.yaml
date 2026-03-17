@@ -2,29 +2,34 @@ server:
   port: 9001
 
 spring:
-  profiles:
-    active: dev
   application:
     name: index12306-user${unique-name:}-service
-#  datasource:
-#    driver-class-name: org.apache.shardingsphere.driver.ShardingSphereDriver
-#    url: jdbc:shardingsphere:classpath:shardingsphere-config.yaml
-
   datasource:
-    driver-class-name: com.mysql.jdbc.Driver
-    url: jdbc:mysql://8.148.145.83:3306/12306_index?useUnicode=true&characterEncoding=utf8
-    username: root
-    password: root
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:12306_user;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MySQL;DATABASE_TO_UPPER=false
+    username: sa
+    password: 
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    encoding: UTF-8
   data:
     redis:
-      host: 8.148.145.83
+      host: localhost
       port: 6379
 
 
   cloud:
     nacos:
       discovery:
-        server-addr: 8.148.145.83:8848
+        server-addr: localhost:8848
       password: nacos
       username: nacos
     sentinel:
