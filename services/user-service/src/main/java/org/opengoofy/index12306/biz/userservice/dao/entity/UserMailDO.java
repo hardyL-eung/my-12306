@@ -30,7 +30,7 @@ import org.opengoofy.index12306.framework.starter.database.base.BaseDO;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@TableName("t_user_mail")
+@TableName("t_user_mail_14")
 public class UserMailDO extends BaseDO {
 
     /**

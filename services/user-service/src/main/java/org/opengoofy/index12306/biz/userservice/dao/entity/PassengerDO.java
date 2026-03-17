@@ -29,7 +29,7 @@ import java.util.Date;
  */
 @EqualsAndHashCode(callSuper = true)
 @Data
-@TableName("t_passenger")
+@TableName("t_passenger_15")
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder

@@ -128,82 +128,42 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
         StringRedisTemplate stringRedisTemplate = (StringRedisTemplate) distributedCache.getInstance();
         // 列车查询逻辑较为复杂，详细解析文章查看 https://nageoffer.com/12306/question
         // v1 版本存在严重的性能深渊问题，v2 版本完美的解决了该问题。通过 Jmeter 压测聚合报告得知，性能提升在 300% - 500%+
-        List<Object> stationDetails = stringRedisTemplate.opsForHash()
+        List<Object> departRegionAndArriveRegion = stringRedisTemplate.opsForHash()
                 .multiGet(REGION_TRAIN_STATION_MAPPING, Lists.newArrayList(requestParam.getFromStation(), requestParam.getToStation()));
-        long count = stationDetails.stream().filter(Objects::isNull).count();
-        if (count > 0) {
-            RLock lock = redissonClient.getLock(LOCK_REGION_TRAIN_STATION_MAPPING);
-            lock.lock();
-            try {
-                stationDetails = stringRedisTemplate.opsForHash()
-                        .multiGet(REGION_TRAIN_STATION_MAPPING, Lists.newArrayList(requestParam.getFromStation(), requestParam.getToStation()));
-                count = stationDetails.stream().filter(Objects::isNull).count();
-                if (count > 0) {
-                    List<StationDO> stationDOList = stationMapper.selectList(Wrappers.emptyWrapper());
-                    Map<String, String> regionTrainStationMap = new HashMap<>();
-                    stationDOList.forEach(each -> regionTrainStationMap.put(each.getCode(), each.getRegionName()));
-                    stringRedisTemplate.opsForHash().putAll(REGION_TRAIN_STATION_MAPPING, regionTrainStationMap);
-                    stationDetails = new ArrayList<>();
-                    stationDetails.add(regionTrainStationMap.get(requestParam.getFromStation()));
-                    stationDetails.add(regionTrainStationMap.get(requestParam.getToStation()));
-                }
-            } finally {
-                lock.unlock();
-            }
-        }
-        List<TicketListDTO> seatResults = new ArrayList<>();
-        String buildRegionTrainStationHashKey = String.format(REGION_TRAIN_STATION, stationDetails.get(0), stationDetails.get(1));
+        long nullCount = departRegionAndArriveRegion.stream().filter(Objects::isNull).count();
+        departRegionAndArriveRegion = nullCount > 0
+                ? updateRegionTrainStationMappingCacheAndReturn(requestParam.getFromStation(), requestParam.getToStation())
+                : departRegionAndArriveRegion;
+
+        List<TicketListDTO> ticketResultList = new ArrayList<>();
+        String buildRegionTrainStationHashKey = String.format(REGION_TRAIN_STATION, departRegionAndArriveRegion.get(0), departRegionAndArriveRegion.get(1));
         Map<Object, Object> regionTrainStationAllMap = stringRedisTemplate.opsForHash().entries(buildRegionTrainStationHashKey);
         if (MapUtil.isEmpty(regionTrainStationAllMap)) {
             RLock lock = redissonClient.getLock(LOCK_REGION_TRAIN_STATION);
             lock.lock();
             try {
+                // double check in case other thread already write into cache
                 regionTrainStationAllMap = stringRedisTemplate.opsForHash().entries(buildRegionTrainStationHashKey);
                 if (MapUtil.isEmpty(regionTrainStationAllMap)) {
-                    LambdaQueryWrapper<TrainStationRelationDO> queryWrapper = Wrappers.lambdaQuery(TrainStationRelationDO.class)
-                            .eq(TrainStationRelationDO::getStartRegion, stationDetails.get(0))
-                            .eq(TrainStationRelationDO::getEndRegion, stationDetails.get(1));
-                    List<TrainStationRelationDO> trainStationRelationList = trainStationRelationMapper.selectList(queryWrapper);
-                    for (TrainStationRelationDO each : trainStationRelationList) {
-                        TrainDO trainDO = distributedCache.safeGet(
-                                TRAIN_INFO + each.getTrainId(),
-                                TrainDO.class,
-                                () -> trainMapper.selectById(each.getTrainId()),
-                                ADVANCE_TICKET_DAY,
-                                TimeUnit.DAYS);
-                        TicketListDTO result = new TicketListDTO();
-                        result.setTrainId(String.valueOf(trainDO.getId()));
-                        result.setTrainNumber(trainDO.getTrainNumber());
-                        result.setDepartureTime(convertDateToLocalTime(each.getDepartureTime(), "HH:mm"));
-                        result.setArrivalTime(convertDateToLocalTime(each.getArrivalTime(), "HH:mm"));
-                        result.setDuration(DateUtil.calculateHourDifference(each.getDepartureTime(), each.getArrivalTime()));
-                        result.setDeparture(each.getDeparture());
-                        result.setArrival(each.getArrival());
-                        result.setDepartureFlag(each.getDepartureFlag());
-                        result.setArrivalFlag(each.getArrivalFlag());
-                        result.setTrainType(trainDO.getTrainType());
-                        result.setTrainBrand(trainDO.getTrainBrand());
-                        if (StrUtil.isNotBlank(trainDO.getTrainTag())) {
-                            result.setTrainTags(StrUtil.split(trainDO.getTrainTag(), ","));
-                        }
-                        long betweenDay = cn.hutool.core.date.DateUtil.betweenDay(each.getDepartureTime(), each.getArrivalTime(), false);
-                        result.setDaysArrived((int) betweenDay);
-                        result.setSaleStatus(new Date().after(trainDO.getSaleTime()) ? 0 : 1);
-                        result.setSaleTime(convertDateToLocalTime(trainDO.getSaleTime(), "MM-dd HH:mm"));
-                        seatResults.add(result);
-                        regionTrainStationAllMap.put(CacheUtil.buildKey(String.valueOf(each.getTrainId()), each.getDeparture(), each.getArrival()), JSON.toJSONString(result));
+                    ticketResultList = getTicketResultList(buildRegionTrainStationHashKey, (String) departRegionAndArriveRegion.get(0), (String) departRegionAndArriveRegion.get(1));
+                    for (TicketListDTO ticketListDTO : ticketResultList) {
+                        regionTrainStationAllMap.put(
+                                CacheUtil.buildKey(String.valueOf(ticketListDTO.getTrainId()), ticketListDTO.getDeparture(), ticketListDTO.getArrival()), JSON.toJSONString(ticketListDTO));
                     }
+                    // write back to cache
                     stringRedisTemplate.opsForHash().putAll(buildRegionTrainStationHashKey, regionTrainStationAllMap);
                 }
             } finally {
                 lock.unlock();
             }
         }
-        seatResults = CollUtil.isEmpty(seatResults)
+        // means other thread already write into cache
+        ticketResultList = CollUtil.isEmpty(ticketResultList)
                 ? regionTrainStationAllMap.values().stream().map(each -> JSON.parseObject(each.toString(), TicketListDTO.class)).toList()
-                : seatResults;
-        seatResults = seatResults.stream().sorted(new TimeStringComparator()).toList();
-        for (TicketListDTO each : seatResults) {
+                : ticketResultList;
+        ticketResultList = ticketResultList.stream().sorted(new TimeStringComparator()).toList();
+
+        for (TicketListDTO each : ticketResultList) {
             String trainStationPriceStr = distributedCache.safeGet(
                     String.format(TRAIN_STATION_PRICE, each.getTrainId(), each.getDeparture(), each.getArrival()),
                     String.class,
@@ -235,11 +195,11 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
             each.setSeatClassList(seatClassList);
         }
         return TicketPageQueryRespDTO.builder()
-                .trainList(seatResults)
-                .departureStationList(buildDepartureStationList(seatResults))
-                .arrivalStationList(buildArrivalStationList(seatResults))
-                .trainBrandList(buildTrainBrandList(seatResults))
-                .seatClassTypeList(buildSeatClassList(seatResults))
+                .trainList(ticketResultList)
+                .departureStationList(buildDepartureStationList(ticketResultList))
+                .arrivalStationList(buildArrivalStationList(ticketResultList))
+                .trainBrandList(buildTrainBrandList(ticketResultList))
+                .seatClassTypeList(buildSeatClassList(ticketResultList))
                 .build();
     }
 
@@ -579,6 +539,83 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
             throw new ServiceException("车票订单退款失败");
         }
         return null; // 暂时返回空实体
+    }
+
+    private List<Object>  updateRegionTrainStationMappingCacheAndReturn(String fromStationCode, String toStationCode) {
+        RLock lock = redissonClient.getLock(LOCK_REGION_TRAIN_STATION_MAPPING);
+        lock.lock();
+        List<Object> stationDetails;
+        StringRedisTemplate stringRedisTemplate = (StringRedisTemplate) distributedCache.getInstance();
+        try {
+            stationDetails = stringRedisTemplate.opsForHash()
+                    .multiGet(REGION_TRAIN_STATION_MAPPING, Lists.newArrayList(fromStationCode, toStationCode));
+            long nullCount = stationDetails.stream().filter(Objects::isNull).count();
+            // double check
+            if (nullCount > 0) {
+                List<StationDO> stationDOList = stationMapper.selectList(Wrappers.emptyWrapper());
+                Map<String, String> regionTrainStationMap = new HashMap<>();
+                stationDOList.forEach(each -> regionTrainStationMap.put(each.getCode(), each.getRegionName()));
+                stringRedisTemplate.opsForHash().putAll(REGION_TRAIN_STATION_MAPPING, regionTrainStationMap);
+                stationDetails = new ArrayList<>();
+                stationDetails.add(regionTrainStationMap.get(fromStationCode));
+                stationDetails.add(regionTrainStationMap.get(toStationCode));
+            }
+        } finally {
+            lock.unlock();
+        }
+        return stationDetails;
+    }
+
+    private List<TicketListDTO> getTicketResultList(String regionTrainStationHashKey, String startRegion, String endRegion) {
+        StringRedisTemplate stringRedisTemplate = (StringRedisTemplate) distributedCache.getInstance();
+        Map<Object, Object> regionTrainStationAllMap;
+        regionTrainStationAllMap = stringRedisTemplate.opsForHash().entries(regionTrainStationHashKey);
+        if (MapUtil.isEmpty(regionTrainStationAllMap)) {
+            List<TrainStationRelationDO> trainStationRelationList = getTrainStationRelationByStartEndRegion(startRegion, endRegion);
+            // get train info(can consider it as a ticket) by trainId
+            return getTicketInfoList(trainStationRelationList);
+        }
+        return new ArrayList<>();
+    }
+
+    private List<TicketListDTO> getTicketInfoList(final List<TrainStationRelationDO> trainStationRelationList){
+        List<TicketListDTO> seatResults = new ArrayList<>();
+        for (TrainStationRelationDO each : trainStationRelationList) {
+            TrainDO trainDO = distributedCache.safeGet(
+                    TRAIN_INFO + each.getTrainId(),
+                    TrainDO.class,
+                    () -> trainMapper.selectById(each.getTrainId()),
+                    ADVANCE_TICKET_DAY,
+                    TimeUnit.DAYS);
+            TicketListDTO result = new TicketListDTO();
+            result.setTrainId(String.valueOf(trainDO.getId()));
+            result.setTrainNumber(trainDO.getTrainNumber());
+            result.setDepartureTime(convertDateToLocalTime(each.getDepartureTime(), "HH:mm"));
+            result.setArrivalTime(convertDateToLocalTime(each.getArrivalTime(), "HH:mm"));
+            result.setDuration(DateUtil.calculateHourDifference(each.getDepartureTime(), each.getArrivalTime()));
+            result.setDeparture(each.getDeparture());
+            result.setArrival(each.getArrival());
+            result.setDepartureFlag(each.getDepartureFlag());
+            result.setArrivalFlag(each.getArrivalFlag());
+            result.setTrainType(trainDO.getTrainType());
+            result.setTrainBrand(trainDO.getTrainBrand());
+            if (StrUtil.isNotBlank(trainDO.getTrainTag())) {
+                result.setTrainTags(StrUtil.split(trainDO.getTrainTag(), ","));
+            }
+            long betweenDay = cn.hutool.core.date.DateUtil.betweenDay(each.getDepartureTime(), each.getArrivalTime(), false);
+            result.setDaysArrived((int) betweenDay);
+            result.setSaleStatus(new Date().after(trainDO.getSaleTime()) ? 0 : 1);
+            result.setSaleTime(convertDateToLocalTime(trainDO.getSaleTime(), "MM-dd HH:mm"));
+            seatResults.add(result);
+        }
+        return seatResults;
+    }
+
+    private List<TrainStationRelationDO> getTrainStationRelationByStartEndRegion(final String startRegion, final String endRegion) {
+        LambdaQueryWrapper<TrainStationRelationDO> queryWrapper = Wrappers.lambdaQuery(TrainStationRelationDO.class)
+                .eq(TrainStationRelationDO::getStartRegion, startRegion)
+                .eq(TrainStationRelationDO::getEndRegion, endRegion);
+        return trainStationRelationMapper.selectList(queryWrapper);
     }
 
     private List<String> buildDepartureStationList(List<TicketListDTO> seatResults) {

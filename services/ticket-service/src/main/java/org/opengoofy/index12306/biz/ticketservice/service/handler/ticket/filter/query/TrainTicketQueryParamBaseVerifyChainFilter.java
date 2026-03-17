@@ -36,9 +36,10 @@ public class TrainTicketQueryParamBaseVerifyChainFilter implements TrainTicketQu
 
     @Override
     public void handler(TicketPageQueryReqDTO requestParam) {
-        if (requestParam.getDepartureDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate().isBefore(LocalDate.now())) {
-            throw new ClientException("出发日期不能小于当前日期");
-        }
+        // TODO: 上线需要开启
+//        if (requestParam.getDepartureDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate().isBefore(LocalDate.now())) {
+//            throw new ClientException("出发日期不能小于当前日期");
+//        }
         if (Objects.equals(requestParam.getFromStation(), requestParam.getToStation())) {
             throw new ClientException("出发地和目的地不能相同");
         }

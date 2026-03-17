@@ -17,7 +17,9 @@
 
 package org.opengoofy.index12306.biz.ticketservice.dto.domain;
 
+import lombok.Builder;
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
 
 import java.util.List;
 

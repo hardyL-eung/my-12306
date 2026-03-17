@@ -28,7 +28,7 @@ import org.opengoofy.index12306.framework.starter.database.base.BaseDO;
  */
 @EqualsAndHashCode(callSuper = true)
 @Data
-@TableName("t_user")
+@TableName("t_user_15")
 public class UserDO extends BaseDO {
 
     /**

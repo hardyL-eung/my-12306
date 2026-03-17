@@ -30,7 +30,7 @@ import org.opengoofy.index12306.framework.starter.database.base.BaseDO;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@TableName("t_user_phone")
+@TableName("t_user_phone_15")
 public class UserPhoneDO extends BaseDO {
 
     /**
